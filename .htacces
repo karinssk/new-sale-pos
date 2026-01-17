@@ -1,0 +1,31 @@
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Access-Control-Allow-Origin"
+Header always set Access-Control-Allow-Methods "PUT, GET, POST, DELETE, OPTIONS"
+RewriteEngine On
+
+
+
+<IfModule mod_headers.c>
+  Header set Access-Control-Allow-Origin "*"
+  
+   SetEnvIf Request_URI "/ajax/endpoint" CORS=True
+  Header set Access-Control-Allow-Origin "*" env=CORS
+  
+</IfModule>
+ 
+
+<FilesMatch "\.(ttf|otf|eot|woff|webm)$">
+  <IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+  </IfModule>
+</FilesMatch>
+
+
+
+RewriteCond $1 !\.(css|js|gif|jpe?g|png) [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /index.php/$1 [L,QSA]
+	 
+	 
+	 

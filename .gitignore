@@ -1,0 +1,93 @@
+# Dependencies
+/node_modules
+**/node_modules
+/vendor
+
+# Laravel specific
+/public/hot
+/public/storage
+/storage/*.key
+/storage/
+/bootstrap/cache/
+
+# Environment files
+.env
+.env.backup
+.env.production
+
+# IDE
+/.idea
+/.vscode
+*.swp
+*.swo
+.DS_Store
+
+# Vagrant
+/.vagrant
+Homestead.json
+Homestead.yaml
+
+# Logs
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+*.log
+
+# SQL files (large)
+*.sql
+*.sql.gz
+*.dump
+
+# Backup folders
+/backup
+/backups
+__MACOSX
+
+# Uploads and media
+/public/uploads/business_logos
+/public/uploads/documents
+/public/uploads/img
+/public/uploads/media
+/public/uploads/invoice_logos
+/public/uploads/UltimatePOS
+/public/uploads/temp
+/public/uploads
+
+# Public assets (compiled)
+/public/css/
+/public/fonts/
+/public/images/
+/public/modules/
+/public/mix-manifest.json
+/public/docs
+/public/js/skins/
+/public/js/icons/
+
+# Documentation
+.scribe
+
+# Test folders
+/test
+/tests
+
+# Server node_modules specifically
+/server/node_modules
+/test/server/node_modules
+
+# UltimatePOS original folder
+/UltimatePOS-V6.1
+
+# Large/binary files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+*.pdf
+*.psd
+*.ai
+
+# Cache
+*.cache
+.phpunit.result.cache
+.php-cs-fixer.cache

@@ -1,0 +1,23 @@
+#!/usr/bin/env php
+<?php
+
+// Set PHP configuration to suppress deprecation warnings
+ini_set('error_reporting', E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
+ini_set('log_errors', 0);
+
+// Custom error handler
+set_error_handler(function ($severity, $message, $file, $line) {
+    if ($severity === E_DEPRECATED || $severity === E_USER_DEPRECATED) {
+        return true;
+    }
+    if (stripos($message, 'deprecated') !== false || 
+        stripos($message, 'implicitly marking parameter') !== false) {
+        return true;
+    }
+    return false;
+});
+
+// Include the original artisan
+require __DIR__ . '/artisan';

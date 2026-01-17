@@ -1,0 +1,2143 @@
+@extends('layouts.app')
+@section('title', 'Category Tree')
+
+@section('content')
+<!-- Include Tailwind CSS -->
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+
+<style>
+/* Modern Tailwind-Enhanced Styles with Resizable Panels */
+.category-tree-container {
+    display: flex;
+    height: calc(100vh - 200px);
+    min-height: 600px;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #f8fafc;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    position: relative;
+}
+
+/* Resizable Panel Divider */
+.panel-divider {
+    width: 8px;
+    background: linear-gradient(to right, #e5e7eb, #f3f4f6, #e5e7eb);
+    cursor: col-resize;
+    position: relative;
+    z-index: 10;
+    transition: all 0.2s ease;
+    border-left: 1px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.panel-divider:hover {
+    background: linear-gradient(to right, #667eea, #764ba2, #667eea);
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+}
+
+.panel-divider::before {
+    content: '⋮⋮';
+    color: #9ca3af;
+    font-size: 14px;
+    letter-spacing: -2px;
+    transform: rotate(90deg);
+    opacity: 0.6;
+}
+
+.panel-divider:hover::before {
+    color: white;
+    opacity: 1;
+}
+
+/* Left Panel - Categories with Resizable Width */
+.categories-panel {
+    min-width: 280px;
+    max-width: 60%;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease;
+}
+
+/* Enhanced Drag and Drop Styles */
+.drag-mode-enabled .categories-tree {
+    background: #f0f8ff;
+    border: 2px dashed #667eea;
+    border-radius: 12px;
+}
+
+.drag-handle {
+    opacity: 0.3;
+    transition: opacity 0.2s ease;
+    cursor: grab;
+    padding: 4px;
+    margin-right: 8px;
+    color: #999;
+    border-radius: 3px;
+    display: none;
+}
+
+.drag-handle:hover {
+    background: #f0f0f0;
+    color: #666;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.drag-mode-enabled .drag-handle {
+    display: inline-block;
+}
+
+.drag-mode-enabled .category-item {
+    border-left: 3px solid #28a745;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.category-item.dragging {
+    opacity: 0.6;
+    transform: rotate(2deg);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    z-index: 1000;
+}
+
+.category-item.drag-over {
+    border: 2px dashed #007bff;
+    background: #f0f8ff;
+}
+
+.sortable-ghost {
+    opacity: 0.4;
+    background: #c8ebfb;
+}
+
+.sortable-chosen {
+    opacity: 0.8;
+}
+
+.temp-drop-zone {
+    min-height: 35px;
+    border: 2px dashed #28a745;
+    border-radius: 6px;
+    background: #f8fff9;
+    margin: 3px 0 3px 25px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: #28a745;
+    font-size: 11px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.drag-mode-enabled .temp-drop-zone {
+    display: flex;
+}
+
+.temp-drop-zone:hover,
+.temp-drop-zone.drag-over {
+    border-color: #155724;
+    background: #d4edda;
+    color: #155724;
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+}
+
+.drop-placeholder {
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.temp-drop-zone::before {
+    content: '📁';
+    margin-right: 6px;
+    font-size: 14px;
+}
+
+/* Level Indicators */
+.category-level {
+    font-size: 10px;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-right: 8px;
+}
+
+.level-1 { background: #2196f3; }
+.level-2 { background: #4caf50; }
+.level-3 { background: #ff9800; }
+.level-4 { background: #f44336; }
+.level-5 { background: #9c27b0; }
+
+/* Drag Instructions */
+.drag-instructions {
+    background: #e3f2fd;
+    border: 1px solid #90caf9;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: #1976d2;
+    display: none;
+}
+
+.drag-mode-enabled .drag-instructions {
+    display: block;
+}
+    color: white;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.category-node.active .category-name {
+    color: white;
+    font-weight: 700;
+}
+
+.category-node.active .category-stats .category-count {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.drag-handle {
+    opacity: 0.3;
+    transition: opacity 0.2s ease;
+}
+
+.category-item:hover .drag-handle {
+    opacity: 1;
+}
+
+.category-actions {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.category-node:hover .category-actions {
+    opacity: 1;
+}
+
+.category-toggle {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+}
+
+.category-toggle:hover {
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.category-toggle.expanded i {
+    transform: rotate(90deg);
+}
+
+.category-toggle.no-children {
+    cursor: default;
+    opacity: 0.3;
+}
+
+/* Category children/subcategories styling */
+.category-children {
+    margin-left: 20px;
+    border-left: 2px solid #e5e7eb;
+    padding-left: 16px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.products-panel {
+    width: 70%;
+    background: white;
+    display: flex;
+    flex-direction: column;
+}
+
+.products-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #e5e7eb 100%);
+    border-bottom: 2px solid #e5e7eb;
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.products-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.products-stats {
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.view-toggle {
+    display: flex;
+    background: #f3f4f6;
+    border-radius: 10px;
+    padding: 4px;
+    gap: 4px;
+}
+
+.view-toggle-btn {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.view-toggle-btn.active {
+    background: white;
+    color: #667eea;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.view-toggle-btn:hover:not(.active) {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.products-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    background: #fafbfc;
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #6b7280;
+    text-align: center;
+    background: white;
+    border-radius: 12px;
+    border: 2px dashed #e5e7eb;
+    padding: 40px;
+}
+
+.empty-state-icon {
+    font-size: 72px;
+    margin-bottom: 20px;
+    opacity: 0.6;
+}
+
+.empty-state h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #374151;
+}
+
+.empty-state p {
+    font-size: 16px;
+    color: #6b7280;
+}
+
+.loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    flex-direction: column;
+    gap: 20px;
+    background: white;
+    border-radius: 12px;
+    margin: 20px;
+}
+
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #f3f4f6;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Grid View */
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+}
+
+.product-card {
+    background: white;
+    border: 2px solid #f3f4f6;
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border-color: #667eea;
+}
+
+.product-image-container {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+    background: #f8fafc;
+}
+
+.product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.product-card:hover .product-image {
+    transform: scale(1.05);
+}
+
+.product-info {
+    padding: 20px;
+}
+
+.product-name {
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 8px;
+    line-height: 1.4;
+    font-size: 16px;
+}
+
+.product-sku {
+    font-size: 12px;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 4px 8px;
+    border-radius: 6px;
+    display: inline-block;
+    margin-bottom: 8px;
+}
+
+.product-price {
+    font-size: 18px;
+    font-weight: 700;
+    color: #059669;
+    margin-bottom: 8px;
+}
+
+.product-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.product-stock {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.product-brand {
+    font-weight: 500;
+    color: #374151;
+}
+
+/* List View */
+.products-list {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.products-list-header {
+    background: #f8fafc;
+    border-bottom: 2px solid #e5e7eb;
+    padding: 16px 24px;
+    display: grid;
+    grid-template-columns: 80px 1fr 120px 120px 100px 120px 120px;
+    gap: 16px;
+    font-weight: 700;
+    color: #374151;
+    font-size: 14px;
+}
+
+.product-list-item {
+    padding: 16px 24px;
+    border-bottom: 1px solid #f3f4f6;
+    display: grid;
+    grid-template-columns: 80px 1fr 120px 120px 100px 120px 120px;
+    gap: 16px;
+    align-items: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.product-list-item:hover {
+    background: #f8fafc;
+}
+
+.product-list-item:last-child {
+    border-bottom: none;
+}
+
+.product-list-image {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 2px solid #e5e7eb;
+}
+
+.product-list-name {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 14px;
+}
+
+.product-list-sku {
+    font-size: 12px;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+.product-list-price {
+    font-weight: 700;
+    color: #059669;
+    font-size: 14px;
+}
+
+.product-list-stock {
+    font-weight: 500;
+    color: #374151;
+    font-size: 14px;
+}
+
+.product-list-brand {
+    font-weight: 500;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.stock-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.stock-high { background: #10b981; }
+.stock-medium { background: #f59e0b; }
+.stock-low { background: #ef4444; }
+.stock-out { background: #6b7280; }
+
+/* Category children/subcategories styling */
+.category-children {
+    margin-left: 20px;
+    border-left: 2px solid #e5e7eb;
+    padding-left: 10px;
+    transition: all 0.3s ease;
+}
+
+.category-children.collapsed {
+    display: none;
+}
+
+.category-children.expanded {
+    display: block;
+}
+
+/* Category toggle button styling */
+.category-toggle {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    color: #6b7280;
+}
+
+/* Stock Indicator Styles */
+.stock-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.stock-high .stock-indicator {
+    background-color: #10b981;
+}
+
+.stock-medium .stock-indicator {
+    background-color: #f59e0b;
+}
+
+.stock-low .stock-indicator {
+    background-color: #ef4444;
+}
+
+.stock-out .stock-indicator {
+    background-color: #6b7280;
+}
+
+.product-stock {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* Product Modal Styles */
+.modal-lg {
+    max-width: 800px;
+}
+
+.product-detail-image-section img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+/* Loading States */
+.loading-state {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+}
+
+.spinner {
+    border: 3px solid #f3f4f6;
+    border-top: 3px solid #3b82f6;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 16px;
+}
+
+.category-toggle:hover {
+    color: #374151;
+}
+
+.category-toggle.expanded {
+    transform: rotate(90deg);
+}
+
+.category-toggle.no-children {
+    cursor: default;
+    color: #d1d5db;
+}
+
+.category-toggle i {
+    font-size: 12px;
+}
+
+/* Product Detail Modal */
+.product-detail-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+}
+
+.product-detail-content {
+    background: white;
+    border-radius: 20px;
+    max-width: 90%;
+    max-height: 90%;
+    width: 1000px;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    position: relative;
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: scale(0.7) translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+.product-detail-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 24px;
+    border-radius: 20px 20px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.product-detail-title {
+    font-size: 24px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.product-detail-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.product-detail-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.product-detail-body {
+    padding: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+}
+
+.product-detail-image-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.product-detail-main-image {
+    width: 100%;
+    height: 400px;
+    object-fit: cover;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 2px solid #e5e7eb;
+}
+
+.product-detail-info-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.product-detail-name {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1f2937;
+    line-height: 1.3;
+}
+
+.product-detail-sku {
+    background: #f3f4f6;
+    color: #6b7280;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    display: inline-block;
+    width: fit-content;
+}
+
+.product-detail-price {
+    font-size: 32px;
+    font-weight: 700;
+    color: #059669;
+    margin: 8px 0;
+}
+
+.product-detail-meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.product-detail-meta-item {
+    background: #f8fafc;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+}
+
+.product-detail-meta-label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.product-detail-meta-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.product-detail-description {
+    background: #f8fafc;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    margin-top: 20px;
+    grid-column: 1 / -1;
+}
+
+.product-detail-description h4 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 12px;
+}
+
+.product-detail-description p {
+    color: #6b7280;
+    line-height: 1.6;
+}
+
+.product-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.btn-product-action {
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary-action {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary-action {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+}
+
+.btn-secondary-action:hover {
+    background: #e5e7eb;
+}
+
+/* Enhanced Panel Toolbar */
+.panel-toolbar {
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.toolbar-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.toolbar-btn {
+    padding: 8px 16px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.toolbar-btn:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.toolbar-btn.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+</style>
+
+<!-- Content Header -->
+<section class="content-header mb-8">
+    <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white shadow-2xl">
+        <h1 class="text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
+            <i class="fa fa-sitemap text-4xl"></i>
+            Category Tree
+        </h1>
+        <p class="text-blue-100 text-lg font-medium">Browse and manage your product categories with modern interface</p>
+    </div>
+</section>
+
+<!-- Main Content -->
+<section class="content">
+    <div class="category-tree-container" id="category-tree-container">
+        <!-- Left Panel - Categories -->
+        <div class="categories-panel" id="categories-panel" style="width: 35%;">
+            <div class="categories-header">
+                <i class="fa fa-sitemap"></i>
+                Product Categories
+            </div>
+            
+            <!-- Panel Toolbar -->
+            <div class="panel-toolbar">
+                <div class="toolbar-actions">
+                    <button type="button" class="toolbar-btn" id="toggle-drag-mode">
+                        <i class="fa fa-arrows"></i>
+                        <span id="drag-mode-text">Enable Drag</span>
+                    </button>
+                    <button type="button" class="toolbar-btn" id="expand-all-categories">
+                        <i class="fa fa-expand"></i>
+                        Expand All
+                    </button>
+                    <button type="button" class="toolbar-btn" id="collapse-all-categories">
+                        <i class="fa fa-compress"></i>
+                        Collapse All
+                    </button>
+                </div>
+                <div class="toolbar-actions">
+                    <button type="button" class="toolbar-btn" id="add-root-category">
+                        <i class="fa fa-plus"></i>
+                        Add Category
+                    </button>
+                </div>
+            </div>
+            
+            <div class="categories-search">
+                <input type="text" id="category-search" placeholder="🔍 Search categories...">
+                <div class="drag-instructions">
+                    <i class="fa fa-info-circle"></i>
+                    <strong>Hierarchical Drag & Drop:</strong> Use grip handles to reorder categories. 
+                    <br>
+                    <small>
+                        📈 <strong>Move Right:</strong> Increase level (L1→L2) |
+                        📉 <strong>Move Left:</strong> Decrease level (L2→L1) |
+                        🔄 <strong>Reorder:</strong> Change position within same level
+                    </small>
+                </div>
+            </div>
+            
+            <div class="categories-tree sortable-container" id="categories-tree" data-parent-id="0">
+                @if(count($categories) > 0)
+                    @foreach($categories as $category)
+                        @include('category_tree.partials.category_node', ['category' => $category, 'level' => 0])
+                    @endforeach
+                @else
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📂</div>
+                        <h3>No Categories Found</h3>
+                        <p>Create some product categories to get started.</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+        
+        <!-- Resizable Divider -->
+        <div class="panel-divider" id="panel-divider"></div>
+        
+        <!-- Right Panel - Products -->
+        <div class="products-panel" id="products-panel" style="width: calc(65% - 8px);">
+            <div class="products-header">
+                <div class="products-title">
+                    <i class="fa fa-cube"></i>
+                    <span id="category-title">Select a category</span>
+                </div>
+                
+                <div class="view-toggle">
+                    <button class="view-toggle-btn active" id="grid-view-btn" data-view="grid">
+                        <i class="fa fa-th"></i>
+                        Grid
+                    </button>
+                    <button class="view-toggle-btn" id="list-view-btn" data-view="list">
+                        <i class="fa fa-list"></i>
+                        List
+                    </button>
+                </div>
+                
+                <div class="products-stats" id="products-stats">
+                    Ready to browse
+                </div>
+            </div>
+            
+            <div class="products-content" id="products-content" data-products-url="{{ route('category-tree.products') }}"
+                 data-update-order-url="{{ route('category-tree.update-order') }}">
+                <div class="empty-state">
+                    <div class="empty-state-icon">👈</div>
+                    <h3>Select a Category</h3>
+                    <p>Choose a category from the left panel to view its products.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Product Detail Modal -->
+<div class="product-detail-modal" id="product-detail-modal">
+    <div class="product-detail-content">
+        <div class="product-detail-header">
+            <div class="product-detail-title">
+                <i class="fa fa-cube"></i>
+                Product Details
+            </div>
+            <button class="product-detail-close" id="close-product-modal">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+        <div class="product-detail-body" id="product-detail-body">
+            <!-- Product details will be loaded here -->
+        </div>
+    </div>
+</div>
+                        <i class="fa fa-th"></i>
+                        Grid
+                    </button>
+                    <button class="view-toggle-btn" id="list-view-btn" data-view="list">
+                        <i class="fa fa-list"></i>
+                        List
+                    </button>
+                </div>
+                
+                <div class="products-stats" id="products-stats">
+                    Ready to browse
+                </div>
+            </div>
+            
+            <div class="products-content" id="products-content" data-products-url="{{ route('category-tree.products') }}"
+                 data-update-order-url="{{ route('category-tree.update-order') }}">
+                <div class="empty-state">
+                    <div class="empty-state-icon">👈</div>
+                    <h3>Select a Category</h3>
+                    <p>Choose a category from the left panel to view its products.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@endsection
+
+@section('javascript')
+<!-- Include SortableJS for drag and drop -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    console.log('Enhanced Category Tree JavaScript loaded!');
+    
+    // Global variables
+    let currentView = 'grid';
+    let isDragModeEnabled = false;
+    let sortableInstances = [];
+    let categories = [];
+    
+    // Setup CSRF token for AJAX requests
+    $.ajaxSetup({
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        }
+    });
+    
+    // Initialize all features
+    initializeResizablePanels();
+    initializeDragAndDrop();
+    loadCategories();
+    
+    // ==== RESIZABLE PANELS ====
+    function initializeResizablePanels() {
+        const container = document.getElementById('category-tree-container');
+        const divider = document.getElementById('panel-divider');
+        const leftPanel = document.getElementById('categories-panel');
+        const rightPanel = document.getElementById('products-panel');
+        
+        let isResizing = false;
+        
+        divider.addEventListener('mousedown', function(e) {
+            isResizing = true;
+            document.addEventListener('mousemove', handleResize);
+            document.addEventListener('mouseup', stopResize);
+            document.body.style.cursor = 'col-resize';
+            e.preventDefault();
+        });
+        
+        function handleResize(e) {
+            if (!isResizing) return;
+            
+            const containerRect = container.getBoundingClientRect();
+            const containerWidth = containerRect.width;
+            const mouseX = e.clientX - containerRect.left;
+            
+            // Calculate percentages
+            const leftWidth = (mouseX / containerWidth) * 100;
+            const rightWidth = 100 - leftWidth - 0.8; // Account for divider width
+            
+            // Set minimum and maximum widths
+            if (leftWidth >= 20 && leftWidth <= 70) {
+                leftPanel.style.width = leftWidth + '%';
+                rightPanel.style.width = rightWidth + '%';
+            }
+        }
+        
+        function stopResize() {
+            isResizing = false;
+            document.removeEventListener('mousemove', handleResize);
+            document.removeEventListener('mouseup', stopResize);
+            document.body.style.cursor = 'default';
+        }
+    }
+    
+    // ==== DRAG AND DROP FUNCTIONALITY ====
+    function initializeDragAndDrop() {
+        // Toggle drag mode
+        $('#toggle-drag-mode').click(function() {
+            isDragModeEnabled = !isDragModeEnabled;
+            
+            if (isDragModeEnabled) {
+                $('#drag-mode-text').text('Disable Drag');
+                $(this).addClass('active');
+                $('#categories-tree').addClass('drag-mode-enabled');
+                enableDragAndDrop();
+                showAlert('Drag & Drop mode enabled. You can now reorder categories.', 'success');
+            } else {
+                $('#drag-mode-text').text('Enable Drag');
+                $(this).removeClass('active');
+                $('#categories-tree').removeClass('drag-mode-enabled');
+                disableDragAndDrop();
+                showAlert('Drag & Drop mode disabled.', 'info');
+            }
+        });
+    }
+    
+    function enableDragAndDrop() {
+        destroyDragAndDrop();
+        
+        // Initialize sortable for root level
+        const rootContainer = document.getElementById('categories-tree');
+        if (rootContainer) {
+            const rootSortable = Sortable.create(rootContainer, {
+                group: {
+                    name: 'categories',
+                    pull: true,
+                    put: true
+                },
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                handle: '.drag-handle',
+                draggable: '.category-item',
+                onStart: function(evt) {
+                    evt.item.classList.add('dragging');
+                    createDropZonesForChildless();
+                },
+                onEnd: function(evt) {
+                    evt.item.classList.remove('dragging');
+                    removeTemporaryDropZones();
+                    handleHierarchicalDragEnd(evt);
+                },
+                onMove: function(evt) {
+                    return checkValidHierarchicalMove(evt);
+                }
+            });
+            sortableInstances.push(rootSortable);
+        }
+        
+        // Initialize sortable for children containers
+        document.querySelectorAll('.category-children').forEach(container => {
+            const parentId = container.dataset.parent;
+            const sortable = Sortable.create(container, {
+                group: {
+                    name: 'categories',
+                    pull: true,
+                    put: function(to, from, dragEl) {
+                        const draggedId = parseInt(dragEl.dataset.id);
+                        const targetParentId = parseInt(parentId);
+                        return !isDescendantOf(targetParentId, draggedId);
+                    }
+                },
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                handle: '.drag-handle',
+                draggable: '.category-item',
+                onStart: function(evt) {
+                    evt.item.classList.add('dragging');
+                    createDropZonesForChildless();
+                },
+                onEnd: function(evt) {
+                    evt.item.classList.remove('dragging');
+                    removeTemporaryDropZones();
+                    handleHierarchicalDragEnd(evt);
+                }
+            });
+            sortableInstances.push(sortable);
+        });
+    }
+    
+    function disableDragAndDrop() {
+        destroyDragAndDrop();
+    }
+    
+    function destroyDragAndDrop() {
+        sortableInstances.forEach(instance => {
+            if (instance && typeof instance.destroy === 'function') {
+                instance.destroy();
+            }
+        });
+        sortableInstances = [];
+    }
+    
+    function createDropZonesForChildless() {
+        document.querySelectorAll('.category-item').forEach(categoryElement => {
+            const categoryId = categoryElement.dataset.id;
+            const hasChildrenContainer = document.querySelector(`.category-children[data-parent="${categoryId}"]`);
+            
+            if (!hasChildrenContainer) {
+                const dropZone = document.createElement('div');
+                dropZone.className = 'category-children sortable-container temp-drop-zone';
+                dropZone.dataset.parent = categoryId;
+                dropZone.innerHTML = '<div class="drop-placeholder">Drop here to make child category</div>';
+                
+                categoryElement.parentNode.insertBefore(dropZone, categoryElement.nextSibling);
+                
+                const dropZoneSortable = Sortable.create(dropZone, {
+                    group: {
+                        name: 'categories',
+                        pull: false,
+                        put: function(to, from, dragEl) {
+                            const draggedId = parseInt(dragEl.dataset.id);
+                            const targetParentId = parseInt(categoryId);
+                            return !isDescendantOf(targetParentId, draggedId);
+                        }
+                    },
+                    animation: 150,
+                    handle: '.drag-handle',
+                    draggable: '.category-item',
+                    onEnd: function(evt) {
+                        evt.item.classList.remove('dragging');
+                        removeTemporaryDropZones();
+                        handleHierarchicalDragEnd(evt);
+                    }
+                });
+                sortableInstances.push(dropZoneSortable);
+            }
+        });
+    }
+    
+    function removeTemporaryDropZones() {
+        document.querySelectorAll('.temp-drop-zone').forEach(zone => {
+            zone.remove();
+        });
+    }
+    
+    function handleHierarchicalDragEnd(evt) {
+        const draggedId = parseInt(evt.item.dataset.id);
+        const oldLevel = parseInt(evt.item.dataset.level) || 1;
+        const oldParentId = parseInt(evt.item.dataset.parentId) || 0;
+        
+        let newParentId = 0;
+        let newLevel = 1;
+        
+        if (evt.to.classList.contains('category-children')) {
+            newParentId = parseInt(evt.to.dataset.parent) || 0;
+            newLevel = getParentLevel(newParentId) + 1;
+        }
+        
+        const newIndex = evt.newIndex;
+        
+        // Update hierarchy
+        updateCategoryHierarchy(draggedId, newParentId, newIndex, newLevel);
+        
+        // Show feedback
+        const movementType = determineMovementType(oldLevel, newLevel, oldParentId, newParentId);
+        showEnhancedMovementFeedback(movementType, oldLevel, newLevel);
+    }
+    
+    function getParentLevel(parentId) {
+        if (!parentId || parentId === 0) return 0;
+        const parentElement = document.querySelector(`[data-id="${parentId}"]`);
+        return parentElement ? (parseInt(parentElement.dataset.level) || 0) : 0;
+    }
+    
+    function isDescendantOf(targetId, ancestorId) {
+        // Implementation for circular reference check
+        return false; // Simplified for now
+    }
+    
+    function checkValidHierarchicalMove(evt) {
+        return true; // Simplified validation
+    }
+    
+    function determineMovementType(oldLevel, newLevel, oldParentId, newParentId) {
+        if (oldParentId !== newParentId || oldLevel !== newLevel) {
+            if (newLevel > oldLevel) {
+                return 'moved_right';
+            } else if (newLevel < oldLevel) {
+                return 'moved_left';
+            } else {
+                return 'moved_same_level';
+            }
+        }
+        return 'reorder';
+    }
+    
+    function showEnhancedMovementFeedback(movementType, oldLevel, newLevel) {
+        let message = '';
+        let alertType = 'info';
+        
+        switch(movementType) {
+            case 'moved_right':
+                message = `📈 Category moved deeper: L${oldLevel} → L${newLevel} (moved right)`;
+                alertType = 'success';
+                break;
+            case 'moved_left':
+                message = `📉 Category moved up: L${oldLevel} → L${newLevel} (moved left)`;
+                alertType = 'info';
+                break;
+            case 'moved_same_level':
+                message = `↔️ Category moved to different parent (same level: L${newLevel})`;
+                alertType = 'info';
+                break;
+            case 'reorder':
+                message = `🔄 Category reordered within same level (L${newLevel})`;
+                alertType = 'success';
+                break;
+        }
+        
+        if (message) {
+            showAlert(message, alertType);
+        }
+    }
+    
+    function updateCategoryHierarchy(categoryId, newParentId, sortOrder, newLevel) {
+        // AJAX call to update category hierarchy
+        $.ajax({
+            url: '{{ route("category-tree.update-order") }}',
+            method: 'POST',
+            data: {
+                categories: [{
+                    id: categoryId,
+                    parent_id: newParentId,
+                    sort_order: sortOrder,
+                    level: newLevel
+                }],
+                _token: '{{ csrf_token() }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    showAlert('Category moved successfully!', 'success');
+                    loadCategories(); // Reload categories
+                } else {
+                    showAlert('Error updating category: ' + response.message, 'error');
+                }
+            },
+            error: function() {
+                showAlert('Error updating category hierarchy', 'error');
+            }
+        });
+    }
+    
+    // ==== CATEGORY MANAGEMENT ====
+    function loadCategories() {
+        // This function would reload the categories tree
+        // For now, we'll keep the existing categories
+    }
+    
+    // Expand/Collapse functionality
+    $('#expand-all-categories').click(function() {
+        $('.category-children').removeClass('collapsed').addClass('expanded').slideDown(200);
+        $('.category-toggle').addClass('expanded');
+    });
+    
+    $('#collapse-all-categories').click(function() {
+        $('.category-children').removeClass('expanded').addClass('collapsed').slideUp(200);
+        $('.category-toggle').removeClass('expanded');
+    });
+    
+    // ==== PRODUCT FUNCTIONALITY ====
+    
+    // View toggle handlers
+    $('.view-toggle-btn').on('click', function() {
+        const view = $(this).data('view');
+        currentView = view;
+        
+        $('.view-toggle-btn').removeClass('active');
+        $(this).addClass('active');
+        
+        const $productsContent = $('#products-content');
+        const productsData = $productsContent.data('current-products');
+        
+        if (productsData && productsData.length > 0) {
+            displayProducts(productsData, productsData.length, $productsContent.data('current-response'));
+        }
+    });
+    
+    // Category node click handler
+    $(document).on('click', '.category-node', function(e) {
+        e.stopPropagation();
+        
+        const categoryId = $(this).data('category-id');
+        const categoryName = $(this).find('.category-name').text();
+        
+        $('.category-node').removeClass('active');
+        $(this).addClass('active');
+        
+        loadCategoryProducts(categoryId, categoryName);
+    });
+    
+    // Product click handler - show product details
+    $(document).on('click', '.product-card, .product-list-item', function() {
+        const productId = $(this).data('product-id');
+        if (productId) {
+            showProductDetails(productId);
+        }
+    });
+    
+    // Category toggle handler
+    $(document).on('click', '.category-toggle', function(e) {
+        e.stopPropagation();
+        
+        const $toggle = $(this);
+        const $categoryItem = $toggle.closest('.category-item');
+        const $children = $categoryItem.find('> .category-children');
+        
+        if ($children.length === 0) return;
+        
+        if ($children.hasClass('collapsed') || $children.is(':hidden')) {
+            $children.removeClass('collapsed').addClass('expanded').slideDown(200);
+            $toggle.addClass('expanded');
+        } else {
+            $children.removeClass('expanded').addClass('collapsed').slideUp(200);
+            $toggle.removeClass('expanded');
+        }
+    });
+    
+    // Load products for a category
+    function loadCategoryProducts(categoryId, categoryName) {
+        $('#category-title').text(categoryName);
+        $('#products-stats').text('Loading...');
+        
+        $('#products-content').html(
+            '<div class="loading-state">' +
+                '<div class="spinner"></div>' +
+                '<p>Loading products...</p>' +
+            '</div>'
+        );
+        
+        $.ajax({
+            url: '{{ route("category-tree.products") }}',
+            method: 'GET',
+            data: {
+                category_id: categoryId,
+                include_subcategories: true
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response && response.success) {
+                    $('#products-content').data('current-products', response.products);
+                    $('#products-content').data('current-response', response);
+                    
+                    const statsText = response.products.length + ' products found';
+                    $('#products-stats').text(statsText);
+                    
+                    displayProducts(response.products, response.products.length, response);
+                } else {
+                    showError('Error loading products: ' + (response.message || 'Unknown error'));
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Products AJAX Error:', xhr, status, error);
+                showError('Failed to load products. Please try again.');
+            }
+        });
+    }
+    
+    // Display products in grid or list view
+    function displayProducts(products, totalCount, responseData) {
+        if (!products || products.length === 0) {
+            $('#products-content').html(
+                '<div class="empty-state">' +
+                    '<div class="empty-state-icon">📦</div>' +
+                    '<h3>No Products Found</h3>' +
+                    '<p>This category doesn\'t contain any products yet.</p>' +
+                '</div>'
+            );
+            return;
+        }
+
+        let productsHtml = '';
+        
+        if (responseData && responseData.showing_parent_products && responseData.message) {
+            productsHtml += '<div class="alert alert-info">' + responseData.message + '</div>';
+        }
+        
+        if (currentView === 'grid') {
+            productsHtml += '<div class="products-grid">';
+            products.forEach(function(product) {
+                const stockLevel = getStockLevel(product.current_stock);
+                const imageUrl = getProductImageUrl(product);
+                productsHtml += `
+                    <div class="product-card" data-product-id="${product.id}" onclick="showProductModal(${product.id})">
+                        <div class="product-image-container">
+                            <img src="${imageUrl}" alt="${product.name}" class="product-image" 
+                                 onerror="this.src='/img/default-product.png'">
+                        </div>
+                        <div class="product-info">
+                            <div class="product-name">${product.name}</div>
+                            <div class="product-sku">SKU: ${product.sku || 'N/A'}</div>
+                            <div class="product-price">$${parseFloat(product.default_sell_price || 0).toFixed(2)}</div>
+                            <div class="product-meta">
+                                <div class="product-stock">
+                                    <span class="stock-indicator ${stockLevel.class}"></span>
+                                    ${stockLevel.text}
+                                </div>
+                                <div class="product-brand">${product.brand || 'No Brand'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            productsHtml += '</div>';
+        } else {
+            productsHtml += `
+                <div class="products-list">
+                    <div class="products-list-header">
+                        <div>Image</div>
+                        <div>Product</div>
+                        <div>SKU</div>
+                        <div>Price</div>
+                        <div>Stock</div>
+                        <div>Brand</div>
+                        <div>Actions</div>
+                    </div>
+            `;
+            products.forEach(function(product) {
+                const stockLevel = getStockLevel(product.current_stock);
+                const imageUrl = getProductImageUrl(product);
+                productsHtml += `
+                    <div class="product-list-item" data-product-id="${product.id}" onclick="showProductModal(${product.id})">
+                        <div class="product-image-container">
+                            <img src="${imageUrl}" alt="${product.name}" class="product-list-image"
+                                 onerror="this.src='/img/default-product.png'">
+                        </div>
+                        <div>
+                            <div class="product-list-name">${product.name}</div>
+                        </div>
+                        <div class="product-list-sku">${product.sku || 'N/A'}</div>
+                        <div class="product-list-price">$${parseFloat(product.default_sell_price || 0).toFixed(2)}</div>
+                        <div class="product-list-stock">
+                            <span class="stock-indicator ${stockLevel.class}"></span>
+                            ${stockLevel.text}
+                        </div>
+                        <div class="product-list-brand">${product.brand || 'No Brand'}</div>
+                        <div>
+                            <button class="btn btn-sm btn-primary" onclick="showProductDetails(${product.id})">
+                                <i class="fa fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            productsHtml += '</div>';
+        }
+        
+        $('#products-content').html(productsHtml);
+    }
+    
+    // Show product details in modal
+    function showProductDetails(productId) {
+        showProductModal(productId);
+    }
+            success: function(product) {
+                console.log('Product details loaded:', product);
+                
+                const stockLevel = getStockLevel(product.current_stock);
+                
+                const modalContent = `
+                    <div class="product-detail-image-section">
+                        <img src="${product.image_url || '/img/default-product.png'}" alt="${product.name}" class="product-detail-main-image">
+                    </div>
+                    <div class="product-detail-info-section">
+                        <div class="product-detail-name">${product.name}</div>
+                        <div class="product-detail-sku">SKU: ${product.sku || 'N/A'}</div>
+                        <div class="product-detail-price">$${parseFloat(product.default_sell_price || 0).toFixed(2)}</div>
+                        
+                        <div class="product-detail-meta-grid">
+                            <div class="product-detail-meta-item">
+                                <div class="product-detail-meta-label">Stock</div>
+                                <div class="product-detail-meta-value">
+                                    <span class="stock-indicator ${stockLevel.class}"></span>
+                                    ${stockLevel.text}
+                                </div>
+                            </div>
+                            <div class="product-detail-meta-item">
+                                <div class="product-detail-meta-label">Brand</div>
+                                <div class="product-detail-meta-value">${product.brand || 'No Brand'}</div>
+                            </div>
+                            <div class="product-detail-meta-item">
+                                <div class="product-detail-meta-label">Category</div>
+                                <div class="product-detail-meta-value">${product.category || 'Uncategorized'}</div>
+                            </div>
+                            <div class="product-detail-meta-item">
+                                <div class="product-detail-meta-label">Created</div>
+                                <div class="product-detail-meta-value">${new Date(product.created_at).toLocaleDateString()}</div>
+                            </div>
+                        </div>
+                        
+                        ${product.product_description ? `
+                        <div class="product-detail-description">
+                            <h4>Description</h4>
+                            <p>${product.product_description}</p>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="product-actions">
+                            <button class="btn-product-action btn-primary-action" onclick="editProduct(${product.id})">
+                                <i class="fa fa-edit"></i>
+                                Edit Product
+                            </button>
+                            <button class="btn-product-action btn-secondary-action" onclick="viewProductDetails(${product.id})">
+                                <i class="fa fa-external-link"></i>
+                                View Full Details
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                $('#product-detail-body').html(modalContent);
+            },
+            error: function() {
+                $('#product-detail-body').html(
+                    '<div class="text-center p-4">' +
+                        '<p>Error loading product details. Please try again.</p>' +
+                    '</div>'
+                );
+            }
+        });
+    }
+    
+    // Close product modal
+    $('#close-product-modal, #product-detail-modal').click(function(e) {
+        if (e.target === this) {
+            $('#product-detail-modal').fadeOut(300);
+        }
+    });
+    
+    // Utility functions
+    function getStockLevel(stock) {
+        const qty = parseFloat(stock) || 0;
+        if (qty === 0) {
+            return { class: 'stock-out', text: 'Out of Stock' };
+        } else if (qty < 10) {
+            return { class: 'stock-low', text: qty + ' in stock' };
+        } else if (qty < 50) {
+            return { class: 'stock-medium', text: qty + ' in stock' };
+        } else {
+            return { class: 'stock-high', text: qty + ' in stock' };
+        }
+    }
+    
+    function getProductImageUrl(product) {
+        if (product.image_url) {
+            return product.image_url;
+        } else if (product.image) {
+            return product.image;
+        } else if (product.image_path) {
+            return product.image_path;
+        } else {
+            return '/img/default-product.png';
+        }
+    }
+    
+    function showProductModal(productId) {
+        // Create modal if it doesn't exist
+        if ($('#product-modal').length === 0) {
+            $('body').append(`
+                <div id="product-modal" class="modal fade" tabindex="-1" role="dialog">
+                    <div class="modal-dialog modal-lg" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Product Details</h5>
+                                <button type="button" class="close" data-dismiss="modal">
+                                    <span>&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body" id="product-modal-content">
+                                Loading...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
+        
+        $('#product-modal').modal('show');
+        $('#product-modal-content').html('<div class="text-center"><i class="fa fa-spinner fa-spin"></i> Loading product details...</div>');
+        
+        // Load product details
+        $.ajax({
+            url: '/products/' + productId,
+            method: 'GET',
+            success: function(response) {
+                if (response && response.product) {
+                    displayProductInModal(response.product);
+                } else {
+                    $('#product-modal-content').html('<div class="alert alert-danger">Failed to load product details</div>');
+                }
+            },
+            error: function() {
+                $('#product-modal-content').html('<div class="alert alert-danger">Error loading product details</div>');
+            }
+        });
+    }
+    
+    function displayProductInModal(product) {
+        const imageUrl = getProductImageUrl(product);
+        const stockLevel = getStockLevel(product.current_stock);
+        
+        const content = `
+            <div class="row">
+                <div class="col-md-4">
+                    <img src="${imageUrl}" alt="${product.name}" class="img-fluid" 
+                         onerror="this.src='/img/default-product.png'">
+                </div>
+                <div class="col-md-8">
+                    <h4>${product.name}</h4>
+                    <table class="table table-sm">
+                        <tr><th>SKU:</th><td>${product.sku || 'N/A'}</td></tr>
+                        <tr><th>Price:</th><td class="text-success font-weight-bold">$${parseFloat(product.default_sell_price || 0).toFixed(2)}</td></tr>
+                        <tr><th>Stock:</th><td><span class="${stockLevel.class}">${stockLevel.text}</span></td></tr>
+                        <tr><th>Brand:</th><td>${product.brand || 'No Brand'}</td></tr>
+                        <tr><th>Category:</th><td>${product.category || 'No Category'}</td></tr>
+                    </table>
+                    ${product.description ? '<div class="mt-3"><h6>Description:</h6><p>' + product.description + '</p></div>' : ''}
+                </div>
+            </div>
+        `;
+        
+        $('#product-modal-content').html(content);
+    }
+    
+    function showError(message) {
+        $('#products-content').html(
+            '<div class="empty-state">' +
+                '<div class="empty-state-icon">⚠️</div>' +
+                '<h3>Error</h3>' +
+                '<p>' + message + '</p>' +
+            '</div>'
+        );
+    }
+    
+    function showAlert(message, type) {
+        let alertClass = 'alert-info';
+        let iconClass = 'fa-info-circle';
+        
+        switch(type) {
+            case 'success':
+                alertClass = 'alert-success';
+                iconClass = 'fa-check-circle';
+                break;
+            case 'error':
+                alertClass = 'alert-danger';
+                iconClass = 'fa-exclamation-circle';
+                break;
+            case 'warning':
+                alertClass = 'alert-warning';
+                iconClass = 'fa-warning';
+                break;
+        }
+        
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-dismissible" style="position: fixed; top: 20px; right: 20px; z-index: 10000; min-width: 300px;">
+                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                <i class="fa ${iconClass}"></i> ${message}
+            </div>
+        `;
+        
+        $('body').append(alertHtml);
+        setTimeout(() => {
+            $('.alert').fadeOut();
+        }, 4000);
+    }
+    
+    // Global functions for external access
+    window.editProduct = function(productId) {
+        window.open('{{ url("/products") }}/' + productId + '/edit', '_blank');
+    };
+    
+    window.viewProductDetails = function(productId) {
+        window.open('{{ url("/products") }}/' + productId, '_blank');
+    };
+    
+    window.showProductDetails = showProductDetails;
+    
+    console.log('Enhanced Category Tree initialized successfully!');
+});
+</script>
+
+<script>
+$(document).ready(function() {
+    // Additional category interaction handlers
+    $(document).on('click', '.category-name', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Remove active class from all categories
+        $('.category-name').removeClass('active');
+        
+        // Add active class to clicked category
+        $(this).addClass('active');
+        
+        // Load products for this category
+        loadCategoryProducts(categoryId, categoryName);
+    });
+
+    // Category toggle handler for expand/collapse subcategories
+    $(document).on('click', '.category-toggle', function(e) {
+        e.stopPropagation();
+        
+        const $toggle = $(this);
+        const $categoryItem = $toggle.closest('.category-item');
+        const $children = $categoryItem.find('> .category-children');
+        
+        if ($children.length === 0) {
+            return; // No children to toggle
+        }
+        
+        if ($children.hasClass('collapsed') || $children.is(':hidden')) {
+            // Expand: show children and update toggle
+            $children.removeClass('collapsed').addClass('expanded').slideDown(200);
+            $toggle.addClass('expanded');
+            console.log('Expanded category:', $categoryItem.data('category-id'));
+        } else {
+            // Collapse: hide children and update toggle
+            $children.removeClass('expanded').addClass('collapsed').slideUp(200);
+            $toggle.removeClass('expanded');
+            console.log('Collapsed category:', $categoryItem.data('category-id'));
+        }
+    });
+    
+    // Test buttons
+    $('#test-connection').on('click', function() {
+        console.log('Test connection clicked');
+        alert('Test button working!');
+    });
+    
+    $('#test-products').on('click', function() {
+        console.log('Testing products for category ID 2...');
+        loadCategoryProducts(2, 'Test Category');
+    });
+    
+    $('#test-subcategory').on('click', function() {
+        console.log('Testing subcategory 44 (should show parent products)...');
+        loadCategoryProducts(44, 'Blade/Accessories Wall chaser');
+    });
+    
+    // Load products for a category
+    function loadCategoryProducts(categoryId, categoryName) {
+        console.log('Loading products for category:', categoryId, categoryName);
+        
+        // Update header
+        $('#category-title').text(categoryName);
+        $('#products-stats').text('Loading...');
+        
+        // Show loading state
+        $('#products-content').html(
+            '<div class="loading-state">' +
+                '<div class="spinner"></div>' +
+                '<p>Loading products...</p>' +
+            '</div>'
+        );
+        
+        // AJAX request to get products
+        $.ajax({
+            url: '{{ route("category-tree.products-simple") }}',
+            method: 'GET',
+            data: {
+                category_id: categoryId,
+                include_subcategories: true
+            },
+            dataType: 'json',
+            timeout: 30000,
+            success: function(response) {
+                console.log('Products AJAX Response:', response);
+                
+                if (response && response.success) {
+                    // Store data for view switching
+                    $('#products-content').data('current-products', response.products);
+                    $('#products-content').data('current-response', response);
+                    
+                    displayProducts(response.products, response.total_products, response);
+                    
+                    let statsText = response.total_products + ' products found';
+                    if (response.showing_parent_products && response.message) {
+                        statsText += ' (' + response.message + ')';
+                    }
+                    $('#products-stats').text(statsText);
+                } else if (response && response.products) {
+                    // Store data for view switching
+                    $('#products-content').data('current-products', response.products);
+                    $('#products-content').data('current-response', response);
+                    
+                    displayProducts(response.products, response.products.length, response);
+                    $('#products-stats').text(response.products.length + ' products found');
+                } else {
+                    showError(response.message || 'Failed to load products');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error Details:', {
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    responseText: xhr.responseText,
+                    error: error
+                });
+                
+                let errorMessage = 'Failed to load products. Status: ' + xhr.status;
+                showError(errorMessage);
+            }
+        });
+    }
+    
+    // Display products in grid or list view
+    function displayProducts(products, totalCount, responseData) {
+        console.log('Displaying products:', products, 'Total count:', totalCount, 'View:', currentView);
+        
+        if (!products || products.length === 0) {
+            $('#products-content').html(
+                '<div class="empty-state">' +
+                    '<div class="empty-state-icon">📦</div>' +
+                    '<h3>No Products Found</h3>' +
+                    '<p>This category doesn\'t have any products yet.</p>' +
+                '</div>'
+            );
+            return;
+        }
+
+        let productsHtml = '';
+        
+        // Add info banner if showing parent products
+        if (responseData && responseData.showing_parent_products && responseData.message) {
+            productsHtml += 
+                '<div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded-r-lg">' +
+                    '<div class="flex">' +
+                        '<div class="flex-shrink-0">' +
+                            '<i class="fa fa-info-circle text-blue-400"></i>' +
+                        '</div>' +
+                        '<div class="ml-3">' +
+                            '<p class="text-sm text-blue-700">' +
+                                '<strong>Note:</strong> ' + responseData.message +
+                            '</p>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        }
+        
+        if (currentView === 'grid') {
+            // Grid View
+            productsHtml += '<div class="products-grid">';
+            products.forEach(function(product) {
+                const stockLevel = getStockLevel(product.current_stock);
+                productsHtml += 
+                    '<div class="product-card" data-product-id="' + product.id + '">' +
+                        '<img src="' + (product.image || '/img/default.png') + '" alt="' + product.name + '" class="product-image" onerror="this.src=\'/img/default.png\'">' +
+                        '<div class="product-info">' +
+                            '<div class="product-name">' + (product.name || 'Unnamed Product') + '</div>' +
+                            '<div class="product-sku">SKU: ' + (product.sku || 'N/A') + '</div>' +
+                            '<div class="product-price">' + (product.price_display || product.price || 'N/A') + '</div>' +
+                            '<div class="product-meta">' +
+                                '<div class="product-stock">' +
+                                    '<span class="stock-indicator ' + stockLevel.class + '"></span>' +
+                                    stockLevel.text +
+                                '</div>' +
+                                '<div class="product-brand">' + (product.brand_name || 'No Brand') + '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+            });
+            productsHtml += '</div>';
+        } else {
+            // List View
+            productsHtml += 
+                '<div class="products-list">' +
+                    '<div class="products-list-header">' +
+                        '<div>Image</div>' +
+                        '<div>Product Name</div>' +
+                        '<div>Price</div>' +
+                        '<div>Stock</div>' +
+                        '<div>Brand</div>' +
+                        '<div>SKU</div>' +
+                        '<div>Actions</div>' +
+                    '</div>';
+                    
+            products.forEach(function(product) {
+                const stockLevel = getStockLevel(product.current_stock);
+                productsHtml += 
+                    '<div class="product-list-item" data-product-id="' + product.id + '">' +
+                        '<div>' +
+                            '<img src="' + (product.image || '/img/default.png') + '" alt="' + product.name + '" class="product-list-image" onerror="this.src=\'/img/default.png\'">' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="product-list-name">' + (product.name || 'Unnamed Product') + '</div>' +
+                            (product.description ? '<div class="text-xs text-gray-500 mt-1">' + product.description.substring(0, 50) + '...</div>' : '') +
+                        '</div>' +
+                        '<div class="product-list-price">' + (product.price_display || product.price || 'N/A') + '</div>' +
+                        '<div class="product-list-stock">' +
+                            '<span class="stock-indicator ' + stockLevel.class + '"></span>' +
+                            stockLevel.text +
+                        '</div>' +
+                        '<div class="product-list-brand">' + (product.brand_name || 'No Brand') + '</div>' +
+                        '<div>' +
+                            '<span class="product-list-sku">' + (product.sku || 'N/A') + '</span>' +
+                        '</div>' +
+                        '<div>' +
+                            '<button class="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition-colors" onclick="viewProduct(' + product.id + ')">' +
+                                '<i class="fa fa-eye"></i>' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>';
+            });
+            productsHtml += '</div>';
+        }
+        
+        $('#products-content').html(productsHtml);
+        console.log('Products displayed successfully in', currentView, 'view');
+    }
+    
+    // Helper function to determine stock level
+    function getStockLevel(stock) {
+        const qty = parseFloat(stock) || 0;
+        if (qty === 0) {
+            return { class: 'stock-out', text: 'Out of Stock' };
+        } else if (qty < 10) {
+            return { class: 'stock-low', text: qty + ' in stock' };
+        } else if (qty < 50) {
+            return { class: 'stock-medium', text: qty + ' in stock' };
+        } else {
+            return { class: 'stock-high', text: qty + ' in stock' };
+        }
+    }
+    
+    // Product view function (can be expanded)
+    function viewProduct(productId) {
+        console.log('View product:', productId);
+        // You can add product detail modal or redirect to product page
+        alert('Product view functionality can be added here. Product ID: ' + productId);
+    }
+    
+    // Show error message
+    function showError(message) {
+        $('#products-content').html(
+            '<div class="empty-state">' +
+                '<div class="empty-state-icon">❌</div>' +
+                '<h3>Error</h3>' +
+                '<p>' + message + '</p>' +
+            '</div>'
+        );
+    }
+    
+    // Initialize: Auto-expand categories with products or subcategories on page load
+    function initializeCategoryTree() {
+        $('.category-item').each(function() {
+            const $item = $(this);
+            const $children = $item.find('> .category-children');
+            const $toggle = $item.find('> .category-node .category-toggle');
+            const productCount = parseInt($item.find('.products-count').first().text()) || 0;
+            const childrenCount = parseInt($item.find('.children-count').first().text()) || 0;
+            
+            // Keep categories expanded if they have products or children
+            if ((productCount > 0 || childrenCount > 0) && $children.length > 0) {
+                $children.removeClass('collapsed').addClass('expanded').show();
+                $toggle.addClass('expanded');
+            }
+        });
+        
+        // Also ensure all subcategories are visible by default
+        $('.category-children').each(function() {
+            const $children = $(this);
+            if (!$children.hasClass('collapsed')) {
+                $children.addClass('expanded').show();
+            }
+        });
+    }
+    
+    // Call initialization
+    initializeCategoryTree();
+    
+    console.log('Category tree initialized with subcategories visible!');
+});
+</script>
+@endsection
