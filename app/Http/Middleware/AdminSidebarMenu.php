@@ -144,6 +144,7 @@ class AdminSidebarMenu
                             );
                         }
 
+                        /*
                         if (auth()->user()->can('product.view')) {
                             $sub->url(
                                 action([\App\Http\Controllers\ProductV2Controller::class, 'index']),
@@ -151,6 +152,7 @@ class AdminSidebarMenu
                                 ['icon' => '', 'active' => request()->segment(1) == 'products-v2']
                             );
                         }
+                        */
 
                         if (auth()->user()->can('product.create')) {
                             $sub->url(

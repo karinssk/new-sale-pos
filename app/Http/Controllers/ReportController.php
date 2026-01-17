@@ -2488,7 +2488,7 @@ class ReportController extends Controller
                     'transaction_payments.id as DT_RowId',
                     'CG.name as customer_group'
                 )
-                ->groupBy('transaction_payments.id');
+                ;
 
             $start_date = $request->get('start_date');
             $end_date = $request->get('end_date');
@@ -2516,7 +2516,12 @@ class ReportController extends Controller
                 $query->where('transaction_payments.method', $request->get('payment_types'));
             }
 
+            $total_amount_query = clone $query;
+            $total_amount = $total_amount_query->select(DB::raw("SUM(IF(transaction_payments.is_return=1, -1*transaction_payments.amount, transaction_payments.amount)) as total_amount"))->first();
+            $total_payment_amount = $total_amount->total_amount ?? 0;
+
             return Datatables::of($query)
+                ->with(['total_amount' => $total_payment_amount])
                  ->editColumn('invoice_no', function ($row) {
                      if (! empty($row->transaction_id)) {
                          return '<a data-href="'.action([\App\Http\Controllers\SellController::class, 'show'], [$row->transaction_id])
@@ -4044,5 +4049,249 @@ class ReportController extends Controller
         $suppliers = Contact::suppliersDropdown($business_id);
 
         return view('report.gst_purchase_report')->with(compact('suppliers', 'taxes'));
+    }
+
+    /**
+     * Shows the sell payment report with charts.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function sellPaymentReportMonthlyYearly(Request $request)
+    {
+        \Log::info('sellPaymentReportMonthlyYearly: HIT');
+        if (! auth()->user()->can('purchase_n_sell_report.view')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $business_id = $request->session()->get('user.business_id');
+        $payment_types = $this->transactionUtil->payment_types(null, true, $business_id);
+        [$query, $start, $end] = $this->getSellPaymentReportMonthlyYearlyQuery($request);
+
+        \Log::info("SellPaymentReportMonthlyYearly SQL: " . $query->toSql());
+        \Log::info("SellPaymentReportMonthlyYearly Bindings: ", $query->getBindings());
+
+        // daily query
+        $payments_data = clone $query;
+        $payments_data = $payments_data->select(
+                DB::raw('DATE(paid_on) as date'),
+                DB::raw("SUM(IF(transaction_payments.is_return=1, -1*transaction_payments.amount, transaction_payments.amount)) as total_payment")
+            )
+            ->groupBy(\DB::raw('DATE(paid_on)')) //Use \DB for safety if DB alias is not imported as such everywhere
+            ->get();
+
+        // -------------------------------------------------------------------
+        // Chart 1: Daily Payments (based on filtered range)
+        // -------------------------------------------------------------------
+        $dates = [];
+        $labels = [];
+        $daily_values = [];
+        
+        $current_date = strtotime($start);
+        $end_date_ts = strtotime($end);
+
+        while ($current_date <= $end_date_ts) {
+            $date_str = date('Y-m-d', $current_date);
+            $dates[] = $date_str;
+            $labels[] = date('j M', $current_date);
+            
+            $day_data = $payments_data->where('date', $date_str)->first();
+            $daily_values[] = $day_data ? (float)$day_data->total_payment : 0;
+
+            $current_date = strtotime('+1 day', $current_date);
+        }
+
+        $chart_daily = new \App\Charts\CommonChart;
+        $chart_daily->labels($labels)
+                    ->options($this->__chartOptions(__('report.total_payment')));
+        $chart_daily->dataset(__('report.total_payment'), 'line', $daily_values);
+
+        // -------------------------------------------------------------------
+        // Chart 2: Monthly Payments
+        // -------------------------------------------------------------------
+        
+        $months_data = clone $query;
+        $payments_monthly_data = $months_data->select(
+            DB::raw("DATE_FORMAT(paid_on, '%Y-%m') as yearmonth"),
+            DB::raw("SUM(IF(transaction_payments.is_return=1, -1*transaction_payments.amount, transaction_payments.amount)) as total_payment")
+        )
+        ->groupBy(\DB::raw("DATE_FORMAT(paid_on, '%Y-%m')"))
+        ->get();
+
+        $monthly_labels = [];
+        $monthly_values = [];
+        
+        //Iterate months in range
+        $current_month = strtotime(date('Y-m-01', strtotime($start)));
+        $end_month = strtotime(date('Y-m-01', strtotime($end)));
+
+        while ($current_month <= $end_month) {
+            $ym = date('Y-m', $current_month);
+            $monthly_labels[] = date('M Y', $current_month);
+            
+            $m_data = $payments_monthly_data->where('yearmonth', $ym)->first();
+            $monthly_values[] = $m_data ? (float)$m_data->total_payment : 0;
+
+            $current_month = strtotime('+1 month', $current_month);
+        }
+
+        $chart_monthly = new \App\Charts\CommonChart;
+        $chart_monthly->labels($monthly_labels)
+                      ->options($this->__chartOptions(__('report.total_payment')));
+        $chart_monthly->dataset(__('report.total_payment'), 'line', $monthly_values);
+
+        
+        $business_locations = BusinessLocation::forDropdown($business_id);
+        $customers = Contact::customersDropdown($business_id, false);
+        $customer_groups = CustomerGroup::forDropdown($business_id, false, true);
+
+        return view('report.sell_payment_report_monthly_yearly', compact(
+            'chart_daily', 'chart_monthly', 'business_locations', 'customers', 'payment_types', 'customer_groups'
+        ));
+    }
+
+    public function sellPaymentReportMonthlyYearlyExportDaily(Request $request)
+    {
+        if (! auth()->user()->can('purchase_n_sell_report.view')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        [$query, $start, $end] = $this->getSellPaymentReportMonthlyYearlyQuery($request);
+
+        $payments_data = clone $query;
+        $payments_data = $payments_data->select(
+            DB::raw('DATE(paid_on) as date'),
+            DB::raw("SUM(IF(transaction_payments.is_return=1, -1*transaction_payments.amount, transaction_payments.amount)) as total_payment")
+        )
+            ->groupBy(\DB::raw('DATE(paid_on)'))
+            ->get()
+            ->keyBy('date');
+
+        $filename = 'sell_payment_report_daily_' . $start . '_to_' . $end . '.csv';
+
+        return response()->streamDownload(function () use ($payments_data, $start, $end) {
+            $output = fopen('php://output', 'w');
+            fputcsv($output, ['date', 'total_payment']);
+
+            $current_date = strtotime($start);
+            $end_date_ts = strtotime($end);
+            while ($current_date <= $end_date_ts) {
+                $date_str = date('Y-m-d', $current_date);
+                $row = $payments_data->get($date_str);
+                $total = $row ? (float) $row->total_payment : 0;
+                fputcsv($output, [$date_str, $total]);
+                $current_date = strtotime('+1 day', $current_date);
+            }
+
+            fclose($output);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    public function sellPaymentReportMonthlyYearlyExportMonthly(Request $request)
+    {
+        if (! auth()->user()->can('purchase_n_sell_report.view')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        [$query, $start, $end] = $this->getSellPaymentReportMonthlyYearlyQuery($request);
+
+        $payments_monthly_data = clone $query;
+        $payments_monthly_data = $payments_monthly_data->select(
+            DB::raw("DATE_FORMAT(paid_on, '%Y-%m') as yearmonth"),
+            DB::raw("SUM(IF(transaction_payments.is_return=1, -1*transaction_payments.amount, transaction_payments.amount)) as total_payment")
+        )
+            ->groupBy(\DB::raw("DATE_FORMAT(paid_on, '%Y-%m')"))
+            ->get()
+            ->keyBy('yearmonth');
+
+        $filename = 'sell_payment_report_monthly_' . $start . '_to_' . $end . '.csv';
+
+        return response()->streamDownload(function () use ($payments_monthly_data, $start, $end) {
+            $output = fopen('php://output', 'w');
+            fputcsv($output, ['year_month', 'total_payment']);
+
+            $current_month = strtotime(date('Y-m-01', strtotime($start)));
+            $end_month = strtotime(date('Y-m-01', strtotime($end)));
+            while ($current_month <= $end_month) {
+                $ym = date('Y-m', $current_month);
+                $row = $payments_monthly_data->get($ym);
+                $total = $row ? (float) $row->total_payment : 0;
+                fputcsv($output, [$ym, $total]);
+                $current_month = strtotime('+1 month', $current_month);
+            }
+
+            fclose($output);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    private function getSellPaymentReportMonthlyYearlyQuery(Request $request)
+    {
+        $business_id = $request->session()->get('user.business_id');
+        $location_id = $request->get('location_id', null);
+        $customer_id = $request->get('customer_id', null);
+        $customer_group_id = $request->get('customer_group_id', $request->get('customer_group_filter'));
+        $start = $request->get('start_date');
+        $end = $request->get('end_date');
+        if ($start === 'undefined' || $end === 'undefined') {
+            $start = null;
+            $end = null;
+        }
+        $date_range = $request->input('date_range');
+        if ((empty($start) || empty($end)) && ! empty($date_range)) {
+            $date_range_array = explode('~', $date_range);
+            if (count($date_range_array) === 2) {
+                $start = $this->transactionUtil->uf_date(trim($date_range_array[0]));
+                $end = $this->transactionUtil->uf_date(trim($date_range_array[1]));
+            }
+        }
+
+        if (empty($start) || empty($end)) {
+            $end = \Carbon::now()->format('Y-m-d');
+            $start = \Carbon::now()->subDays(29)->format('Y-m-d');
+        }
+
+        \Log::info("SellPaymentReportMonthlyYearly Request:", $request->all());
+
+        $query = TransactionPayment::leftjoin('transactions as t', function ($join) use ($business_id) {
+            $join->on('transaction_payments.transaction_id', '=', 't.id')
+                ->where('t.business_id', $business_id)
+                ->whereIn('t.type', ['sell', 'opening_balance']);
+        })
+            ->leftjoin('contacts as c', 't.contact_id', '=', 'c.id')
+            ->leftjoin('customer_groups AS CG', 'c.customer_group_id', '=', 'CG.id')
+            ->where('transaction_payments.business_id', $business_id)
+            ->whereBetween(DB::raw('date(paid_on)'), [$start, $end]);
+
+        if (! empty($location_id)) {
+            $query->where('t.location_id', $location_id);
+        }
+        if (! empty($customer_id)) {
+            $query->where('t.contact_id', $customer_id);
+        }
+        if (! empty($customer_group_id)) {
+            $query->where('CG.id', $customer_group_id);
+        }
+        if (! empty($request->get('payment_types'))) {
+            $query->where('transaction_payments.method', $request->get('payment_types'));
+        }
+
+        return [$query, $start, $end];
+    }
+
+    private function __chartOptions($title)
+    {
+        return [
+            'yAxis' => [
+                'title' => [
+                    'text' => $title,
+                ],
+            ],
+            'legend' => [
+                'align' => 'right',
+                'verticalAlign' => 'top',
+                'floating' => true,
+                'layout' => 'vertical',
+                'padding' => 20,
+            ],
+        ];
     }
 }

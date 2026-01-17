@@ -616,6 +616,9 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
     Route::get('/reports/lot-report', [ReportController::class, 'getLotReport']);
     Route::get('/reports/purchase-payment-report', [ReportController::class, 'purchasePaymentReport']);
     Route::get('/reports/sell-payment-report', [ReportController::class, 'sellPaymentReport']);
+    Route::get('/reports/sell-payment-report-monthly-yearly', [ReportController::class, 'sellPaymentReportMonthlyYearly']);
+    Route::get('/reports/sell-payment-report-monthly-yearly/export-daily', [ReportController::class, 'sellPaymentReportMonthlyYearlyExportDaily']);
+    Route::get('/reports/sell-payment-report-monthly-yearly/export-monthly', [ReportController::class, 'sellPaymentReportMonthlyYearlyExportMonthly']);
     Route::get('/reports/product-stock-details', [ReportController::class, 'productStockDetails']);
     Route::get('/reports/adjust-product-stock', [ReportController::class, 'adjustProductStock']);
     Route::get('/reports/get-profit/{by?}', [ReportController::class, 'getProfit']);
@@ -831,7 +834,7 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
 
 //common route
 Route::middleware(['auth'])->group(function () {
-    Route::get('/logout', [App\Http\Controllers\Auth\LoginController::class, 'logout'])->name('logout');
+    Route::get('/logout', [App\Http\Controllers\Auth\LoginController::class, 'logout'])->name('user.logout');
 });
 
 Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone'])->group(function () {

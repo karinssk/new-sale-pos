@@ -23,17 +23,20 @@
 .select2-search__field {
     background-color: white !important;
     color: black !important;
+    box-shadow: none !important;
 }
 
 .select2-search--dropdown .select2-search__field {
     background-color: white !important;
     color: black !important;
     border: 1px solid #ddd !important;
+    box-shadow: none !important;
 }
 
 .select2-container--default .select2-search--dropdown .select2-search__field {
     background-color: white !important;
     color: black !important;
+    box-shadow: none !important;
 }
 </style>
 
@@ -986,6 +989,29 @@
     	
     	$(document).ready( function() {
     		console.log('[DEBUG] document.ready fired');
+
+            function resetSelect2DropdownParent($select) {
+                var $parent = $select.closest('.input-group');
+                if ($parent.length === 0) {
+                    $parent = $select.parent();
+                }
+                var existing = $select.data('select2');
+                if (existing) {
+                    var options = $.extend(true, {}, existing.options.options);
+                    options.dropdownParent = $parent;
+                    $select.select2('destroy');
+                    $select.select2(options);
+                } else {
+                    $select.select2({ dropdownParent: $parent });
+                }
+            }
+
+            $('.select2').each(function() {
+                resetSelect2DropdownParent($(this));
+            });
+            if ($('#customer_id').length) {
+                resetSelect2DropdownParent($('#customer_id'));
+            }
     		
     		// Tax ID Lookup Variables - declared at top to avoid temporal dead zone
     		var taxLookupTimeout;
