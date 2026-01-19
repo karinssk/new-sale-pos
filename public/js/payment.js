@@ -166,66 +166,6 @@ $(document).on('change', '.payment_types_dropdown', function(e) {
     }
 });
 
-// Bank dropdown helper: set matching logo filename automatically
-function updateBankLogoFields($select) {
-    var $container = $select.closest('.payment_details_div');
-    var logo = $select.find('option:selected').data('logo') || '';
-    $container.find('.bank-logo-input').val(logo);
-
-    var $preview = $container.find('.bank-logo-preview');
-    if ($preview.length) {
-        $preview.empty();
-        if (logo) {
-            $('<img/>', {
-                src: '/img/bank_logo/' + logo,
-                style: 'max-height:40px; max-width:100%;'
-            }).appendTo($preview);
-        }
-    }
-}
-
-$(document).on('change', '.bank-name-select', function() {
-    updateBankLogoFields($(this));
-});
-
-function formatBankOption(bank) {
-    if (!bank.id) {
-        return bank.text;
-    }
-    var logo = $(bank.element).data('logo');
-    if (logo) {
-        return $('<span><img src="/img/bank_logo/' + logo + '" style="height:18px;width:auto;margin-right:8px;" />' + bank.text + '</span>');
-    }
-    return bank.text;
-}
-
-function initBankSelect2(context) {
-    var $scope = context || $(document);
-    $scope.find('.bank-name-select').each(function() {
-        var $select = $(this);
-        // Re-init to apply templates
-        if ($select.data('select2')) {
-            $select.select2('destroy');
-        }
-        var dropdownParent = $select.closest('.modal');
-        $select.select2({
-            width: '100%',
-            templateResult: formatBankOption,
-            templateSelection: formatBankOption,
-            dropdownParent: dropdownParent.length ? dropdownParent : undefined
-        });
-        updateBankLogoFields($select);
-    });
-}
-
-$(document).ready(function() {
-    initBankSelect2();
-});
-
-$(document).on('shown.bs.modal', '.modal', function() {
-    initBankSelect2($(this));
-});
-
 $(document).on('submit', 'form#transaction_payment_add_form', function(e){
     // Check if this is a billing receipt creation modal - if so, let the custom handler take over
     if ($('.payment_modal').attr('data-billing-receipt-mode') === 'true') {

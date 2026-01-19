@@ -1279,8 +1279,8 @@ $(document).ready(function() {
             { data: 'action', orderable: false, searchable: false },
         ],
         fnDrawCallback: function(oSettings) {
-            var total_amount = oSettings.json.total_amount;
-            $('#footer_total_amount').html(__currency_trans_from_en(total_amount, true));
+            var total_amount = sum_table_col($('#sell_payment_report_table'), 'paid-amount');
+            $('#footer_total_amount').text(total_amount);
             __currency_convert_recursively($('#sell_payment_report_table'));
         },
         createdRow: function(row, data, dataIndex) {

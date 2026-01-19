@@ -302,12 +302,7 @@ $(document).ready(function() {
                 }
 
             if (item.enable_stock == 1 && item.qty_available <= 0 && !is_overselling_allowed && !for_so && !is_draft) {
-                // Build image HTML for out-of-stock items
-                var imgHtml = '';
-                if (item.image) {
-                    imgHtml = '<img src="/migration-projects/sale-pos-new-version/public/uploads/img/' + item.image + '" style="width:40px;height:40px;object-fit:cover;margin-right:8px;border-radius:4px;opacity:0.5;" onerror="this.style.display=\'none\'">';
-                }
-                var string = '<li class="ui-state-disabled" style="display:flex;align-items:center;">' + imgHtml + '<div>' + item.name;
+                var string = '<li class="ui-state-disabled">' + item.name;
                 if (item.type == 'variable') {
                     string += '-' + item.variation;
                 }
@@ -321,16 +316,10 @@ $(document).ready(function() {
                     ')' +
                     '<br> Price: ' +
                     __currency_trans_from_en(selling_price, false, false, __currency_precision, true) +
-                    ' (Out of stock) </div></li>';
+                    ' (Out of stock) </li>';
                 return $(string).appendTo(ul);
             } else {
-                // Build image HTML for available items
-                var imgHtml = '';
-                if (item.image) {
-                    var imgSrc = '/migration-projects/sale-pos-new-version/public/uploads/img/' + item.image;
-                    imgHtml = '<img src="' + imgSrc + '" style="width:40px;height:40px;object-fit:cover;margin-right:8px;border-radius:4px;" onerror="this.style.display=\'none\'">';
-                }
-                var string = '<div style="display:flex;align-items:center;">' + imgHtml + '<div>' + item.name;
+                var string = '<div>' + item.name;
                 if (item.type == 'variable') {
                     string += '-' + item.variation;
                 }
@@ -345,7 +334,7 @@ $(document).ready(function() {
                     var qty_available = __currency_trans_from_en(item.qty_available, false, false, __currency_precision, true);
                     string += ' - ' + qty_available + item.unit;
                 }
-                string += '</div></div>';
+                string += '</div>';
 
                 return $('<li>')
                     .append(string)

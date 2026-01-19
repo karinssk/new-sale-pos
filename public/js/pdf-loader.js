@@ -84,48 +84,20 @@ class PDFLoader {
             let nodeJsUrl;
             let filename;
             
-            // Get base URL from current location (handles subdirectory installations)
-            const getBaseUrl = () => {
-                // Try to get base URL from Laravel's app_url meta tag if available
-                const appUrlMeta = document.querySelector('meta[name="app-url"]');
-                if (appUrlMeta) {
-                    return appUrlMeta.getAttribute('content').replace(/\/$/, '');
-                }
-                
-                // Fallback: extract base path from current URL
-                // This handles URLs like /migration-projects/sale-pos-new-version/public/
-                const path = window.location.pathname;
-                const publicIndex = path.indexOf('/public/');
-                if (publicIndex !== -1) {
-                    return path.substring(0, publicIndex + 7); // include '/public'
-                }
-                
-                // If no /public/ found, try to extract from known patterns
-                const sellsIndex = path.indexOf('/sells/');
-                if (sellsIndex !== -1) {
-                    return path.substring(0, sellsIndex);
-                }
-                
-                // Last resort: assume root
-                return '';
-            };
-            
-            const baseUrl = getBaseUrl();
-            
             // Use new authenticated routes directly
             this.setProgress(15, 'เตรียมสร้าง PDF...');
             
             switch (documentType) {
                 case 'quotations':
-                    nodeJsUrl = `${baseUrl}/quotations/${transactionId}/pdf-print-nodejs`;
+                    nodeJsUrl = `/quotations/${transactionId}/pdf-print-nodejs`;
                     filename = `quotation-${transactionId}.pdf`;
                     break;
                 case 'tax-invoice':
-                    nodeJsUrl = `${baseUrl}/tax-invoice/${transactionId}/pdf-print-nodejs`;
+                    nodeJsUrl = `/tax-invoice/${transactionId}/pdf-print-nodejs`;
                     filename = `tax-invoice-${transactionId}.pdf`;
                     break;
                 case 'billing-receipt':
-                    nodeJsUrl = `${baseUrl}/billing-receipt/${transactionId}/pdf-print-nodejs`;
+                    nodeJsUrl = `/billing-receipt/${transactionId}/pdf-print-nodejs`;
                     filename = `billing-receipt-${transactionId}.pdf`;
                     break;
                 default:
